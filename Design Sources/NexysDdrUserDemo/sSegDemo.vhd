@@ -1,90 +1,108 @@
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
 
 entity sSegDemo is
    port(
       clk_i         : in std_logic;
-      rstn_i        : in std_logic;
-      accel_x_i     : in std_logic_vector(8 downto 0); 
-      accel_y_i     : in std_logic_vector(8 downto 0); 
-      game_status_i : in std_logic_vector(1 downto 0); 
+      mode_i        : in std_logic_vector(1 downto 0); -- 00: Press Start, 01: Playing, 10: Game Over / High Score
+      score_i       : in integer range 0 to 99;
+      hi_score_i    : in integer range 0 to 99;
       seg_o         : out std_logic_vector(7 downto 0);
       an_o          : out std_logic_vector(7 downto 0)
    );
 end sSegDemo;
 
 architecture Behavioral of sSegDemo is
+    signal refresh_counter : unsigned(19 downto 0) := (others => '0');
+    signal digit_select : unsigned(2 downto 0);
+    
+    signal d_score_10, d_score_1 : integer range 0 to 9;
+    signal d_hi_10, d_hi_1 : integer range 0 to 9;
 
-component sSegDisplay is
-port(
-   ck       : in  std_logic;
-   number   : in  std_logic_vector(63 downto 0);
-   seg      : out std_logic_vector(7 downto 0);
-   an       : out std_logic_vector(7 downto 0));
-end component;
-
-signal dispVal : std_logic_vector(63 downto 0);
-
-function bin2bcd(bin : std_logic_vector(8 downto 0)) return std_logic_vector is
-    variable bcd : std_logic_vector(20 downto 0) := (others => '0');
-begin
-    bcd(8 downto 0) := bin;
-    for i in 0 to 8 loop
-        if bcd(12 downto 9) > 4 then bcd(12 downto 9) := bcd(12 downto 9) + 3; end if;
-        if bcd(16 downto 13) > 4 then bcd(16 downto 13) := bcd(16 downto 13) + 3; end if;
-        if bcd(20 downto 17) > 4 then bcd(20 downto 17) := bcd(20 downto 17) + 3; end if;
-        bcd := bcd(19 downto 0) & '0';
-    end loop;
-    return bcd(20 downto 9);
-end function;
-
-function hex2seg(hex : std_logic_vector(3 downto 0)) return std_logic_vector is
-begin
-    case hex is
-        when x"0" => return x"C0";
-        when x"1" => return x"F9";
-        when x"2" => return x"A4";
-        when x"3" => return x"B0";
-        when x"4" => return x"99";
-        when x"5" => return x"92";
-        when x"6" => return x"82";
-        when x"7" => return x"F8";
-        when x"8" => return x"80";
-        when x"9" => return x"90";
-        when others => return x"FF";
-    end case;
-end function;
-
-signal bcd_x : std_logic_vector(11 downto 0);
-signal game_status_pattern : std_logic_vector(31 downto 0);
+    function to_seg(n : integer) return std_logic_vector is
+    begin
+        case n is
+            when 0 => return "11000000"; -- 0
+            when 1 => return "11111001"; -- 1
+            when 2 => return "10100100"; -- 2
+            when 3 => return "10110000"; -- 3
+            when 4 => return "10011001"; -- 4
+            when 5 => return "10010010"; -- 5
+            when 6 => return "10000010"; -- 6
+            when 7 => return "11111000"; -- 7
+            when 8 => return "10000000"; -- 8
+            when 9 => return "10010000"; -- 9
+            when others => return "11111111";
+        end case;
+    end function;
 
 begin
+    process(clk_i)
+    begin
+        if rising_edge(clk_i) then
+            refresh_counter <= refresh_counter + 1;
+        end if;
+    end process;
 
-   bcd_x <= bin2bcd(accel_x_i);
-   
-   process(game_status_i)
-   begin
-       if game_status_i = "01" then 
-           game_status_pattern <= x"8C" & x"88" & x"92" & x"92";
-       elsif game_status_i = "10" then 
-           game_status_pattern <= x"8E" & x"88" & x"F9" & x"C7";
-       else 
-           game_status_pattern <= x"FF" & x"FF" & x"FF" & x"FF";
-       end if;
-   end process;
+    digit_select <= refresh_counter(19 downto 17);
+    
+    d_score_10 <= score_i / 10;
+    d_score_1  <= score_i mod 10;
+    d_hi_10    <= hi_score_i / 10;
+    d_hi_1     <= hi_score_i mod 10;
 
-   dispVal <=  game_status_pattern &             
-               x"FF" &                           
-               hex2seg(bcd_x(11 downto 8)) &     
-               hex2seg(bcd_x(7 downto 4)) &      
-               hex2seg(bcd_x(3 downto 0));       
-               
-   Disp: sSegDisplay
-   port map(
-      ck       => clk_i,
-      number   => dispVal,
-      seg      => seg_o,
-      an       => an_o);
+    process(digit_select, mode_i, score_i, hi_score_i, d_score_10, d_score_1, d_hi_10, d_hi_1)
+    begin
+        an_o <= (others => '1');
+        seg_o <= (others => '1');
+        an_o(to_integer(digit_select)) <= '0';
 
+        case mode_i is
+            when "00" => -- PRESS START
+                case digit_select is
+                    when "111" => seg_o <= "10001100"; -- P
+                    when "110" => seg_o <= "10101111"; -- r
+                    when "101" => seg_o <= "10000110"; -- E
+                    when "100" => seg_o <= "10010010"; -- S
+                    when "011" => seg_o <= "10010010"; -- S
+                    when "010" => seg_o <= "11111111"; -- blank
+                    when "001" => seg_o <= "10010010"; -- S
+                    when "000" => seg_o <= "10000111"; -- t
+                    when others => null;
+                end case;
+
+            when "01" => -- PLAYING (Score)
+                case digit_select is
+                    when "111" => seg_o <= "10010010"; -- S
+                    when "110" => seg_o <= "11000110"; -- C
+                    when "101" => seg_o <= "11000000"; -- O
+                    when "100" => seg_o <= "10101111"; -- r
+                    when "011" => seg_o <= "10000110"; -- E
+                    when "001" => seg_o <= to_seg(d_score_10);
+                    when "000" => seg_o <= to_seg(d_score_1);
+                    when others => null;
+                end case;
+
+            when "10" => -- GAME OVER / HI SCORE
+                if refresh_counter(21) = '0' then -- GO + Score
+                    case digit_select is
+                        when "111" => seg_o <= "11000010"; -- G
+                        when "110" => seg_o <= "11000000"; -- O
+                        when "001" => seg_o <= to_seg(d_score_10);
+                        when "000" => seg_o <= to_seg(d_score_1);
+                        when others => null;
+                    end case;
+                else -- HI + HiScore
+                    case digit_select is
+                        when "111" => seg_o <= "10010001"; -- H
+                        when "110" => seg_o <= "11111001"; -- I
+                        when "001" => seg_o <= to_seg(d_hi_10);
+                        when "000" => seg_o <= to_seg(d_hi_1);
+                        when others => null;
+                    end case;
+                end if;
+            when others => null;
+        end case;
+    end process;
 end Behavioral;
