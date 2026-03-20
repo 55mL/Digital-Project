@@ -107,6 +107,8 @@ architecture Behavioral of top_game is
             load_value_ms : in  STD_LOGIC_VECTOR(13 downto 0);
             max_time_ms   : in  STD_LOGIC_VECTOR(13 downto 0);
             display_en    : in  STD_LOGIC;
+            x_val_in      : in  integer range 0 to 511;
+            cond_ok_in    : in  STD_LOGIC;
             seg           : out STD_LOGIC_VECTOR(7 downto 0);
             an            : out STD_LOGIC_VECTOR(7 downto 0);
             led_r         : out STD_LOGIC_VECTOR(15 downto 0);

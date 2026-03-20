@@ -8,7 +8,7 @@ entity countdown_7seg is
         reset         : in  STD_LOGIC;
         start         : in  STD_LOGIC;
         load_value_ms : in  STD_LOGIC_VECTOR(13 downto 0);
-        max_time_ms   : in  STD_LOGIC_VECTOR(13 downto 14-1); -- Just keeping size 14
+        max_time_ms   : in  STD_LOGIC_VECTOR(13 downto 0);
         display_en    : in  STD_LOGIC;
         x_val_in      : in  integer range 0 to 511;
         cond_ok_in    : in  STD_LOGIC;
