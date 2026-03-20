@@ -215,7 +215,7 @@ end process;
             r_temp := (others => '0');
 
             for i_var in 0 to 15 loop
-                if i_var < led_count then
+                if i_var >= (16 - led_count) then
                     if time_ms > (max_time_i * 2) / 3 then
                         duty_r := to_unsigned(255, 8);
                     elsif time_ms > max_time_i / 3 then

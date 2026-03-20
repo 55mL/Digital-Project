@@ -209,6 +209,10 @@ architecture Behavioral of top_game is
     -- RandomColor latch pulse
     signal do_random    : STD_LOGIC := '0';
 
+    -- Guard: ป้องกัน race condition ตอนเข้า ST_COUNTDOWN
+    -- รอให้ countdown load เสร็จ (time_up='0') ก่อนเริ่มตรวจ
+    signal cd_armed     : STD_LOGIC := '0';
+
     -- =========================================================================
     -- Helper: encode digit to 7-seg cathode (active-low, no DP)
     -- =========================================================================
@@ -572,6 +576,7 @@ begin
                 delay_cnt   <= 0;
                 delay_done  <= '0';
                 color_latch <= "00";
+                cd_armed    <= '0';
             else
                 -- default pulses
                 cd_start  <= '0';
@@ -627,6 +632,7 @@ begin
                             cd_start   <= '1';
                             cd_display <= '1';
                             seg_sel    <= '0';   -- countdown
+                            cd_armed   <= '0';   -- ยังไม่ตรวจ time_up จนกว่า countdown โหลดเสร็จ
                             game_state <= ST_COUNTDOWN;
                         else
                             delay_cnt <= delay_cnt + 1;
@@ -639,22 +645,29 @@ begin
                         seg_sel <= '0';   -- countdown
                         ld17_en <= '1';   -- ยังแสดงสีอยู่
 
-                        if hold_pass = '1' then
-                            -- ทำถูกและค้างครบ 1 วินาที
-                            cd_display <= '0';
-                            ld17_en    <= '0';
-                            game_state <= ST_PASS;
-                            delay_cnt  <= 0;
-
-                        elsif cd_time_up = '1' then
-                            -- หมดเวลา
-                            cd_display <= '0';
-                            ld17_en    <= '0';
-                            if score > high_score then
-                                high_score <= score;
+                        -- Guard: รอ countdown โหลดค่าเสร็จก่อน (time_up ต้องเป็น '0')
+                        if cd_armed = '0' then
+                            if cd_time_up = '0' then
+                                cd_armed <= '1';  -- countdown loaded, safe to check
                             end if;
-                            game_state <= ST_FAIL;
-                            delay_cnt  <= 0;
+                        else
+                            if hold_pass = '1' then
+                                -- ทำถูกและค้างครบ 1 วินาที
+                                cd_display <= '0';
+                                ld17_en    <= '0';
+                                game_state <= ST_PASS;
+                                delay_cnt  <= 0;
+
+                            elsif cd_time_up = '1' then
+                                -- หมดเวลา
+                                cd_display <= '0';
+                                ld17_en    <= '0';
+                                if score > high_score then
+                                    high_score <= score;
+                                end if;
+                                game_state <= ST_FAIL;
+                                delay_cnt  <= 0;
+                            end if;
                         end if;
 
                     -- ----------------------------------------------------------
