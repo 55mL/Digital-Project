@@ -10,8 +10,10 @@ entity countdown_7seg is
         load_value_ms : in  STD_LOGIC_VECTOR(13 downto 0);
         max_time_ms   : in  STD_LOGIC_VECTOR(13 downto 0);
         display_en    : in  STD_LOGIC;
+        count_en      : in  STD_LOGIC;
         x_val_in      : in  integer range 0 to 511;
         cond_ok_in    : in  STD_LOGIC;
+        show_up_in    : in  STD_LOGIC;
 
         seg           : out STD_LOGIC_VECTOR(7 downto 0);
         an            : out STD_LOGIC_VECTOR(7 downto 0);
@@ -110,7 +112,7 @@ begin
                 else
                     time_ms <= load_int;
                 end if;
-            elsif tick_1khz = '1' then
+            elsif tick_1khz = '1' and count_en = '1' then
                 if time_ms > 0 then
                     time_ms <= time_ms - 1;
                 else
@@ -167,7 +169,10 @@ begin
         else
             case digit_idx is
                 when 7 =>
-                    if cond_ok_in = '1' then
+                    if show_up_in = '1' then
+                        raw_seg <= "1000001"; -- 'U' (b,c,d,e,f ON)
+                        use_raw <= '1';
+                    elsif cond_ok_in = '1' then
                         raw_seg <= "1000000"; -- 'O'
                         use_raw <= '1';
                     else
@@ -175,7 +180,10 @@ begin
                     end if;
                     dp_bit <= '1';
                 when 6 =>
-                    if cond_ok_in = '1' then
+                    if show_up_in = '1' then
+                        raw_seg <= "0001100"; -- 'P' (a,b,e,f,g ON)
+                        use_raw <= '1';
+                    elsif cond_ok_in = '1' then
                         raw_seg <= "0001011"; -- 'K'
                         use_raw <= '1';
                     else

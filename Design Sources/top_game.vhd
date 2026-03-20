@@ -107,8 +107,10 @@ architecture Behavioral of top_game is
             load_value_ms : in  STD_LOGIC_VECTOR(13 downto 0);
             max_time_ms   : in  STD_LOGIC_VECTOR(13 downto 0);
             display_en    : in  STD_LOGIC;
+            count_en      : in  STD_LOGIC;
             x_val_in      : in  integer range 0 to 511;
             cond_ok_in    : in  STD_LOGIC;
+            show_up_in    : in  STD_LOGIC;
             seg           : out STD_LOGIC_VECTOR(7 downto 0);
             an            : out STD_LOGIC_VECTOR(7 downto 0);
             led_r         : out STD_LOGIC_VECTOR(15 downto 0);
@@ -166,10 +168,14 @@ architecture Behavioral of top_game is
     signal cd_time_up   : STD_LOGIC;
 
     -- Countdown timing parameters
-    constant CD_START_MS  : integer := 3000;   -- เวลาเริ่มต้น 3 วินาที
-    constant CD_MIN_MS    : integer := 1000;   -- เวลาขั้นต่ำ 1 วินาที
-    constant CD_DEC_MS    : integer := 200;    -- ลดทีละ 200 ms ต่อรอบ
-    signal   cd_time_val  : integer range CD_MIN_MS to CD_START_MS := CD_START_MS;
+    constant CD_START_MS  : integer := 5000;   -- เริ่มต้นที่ 5 วินาที
+    constant CD_MIN_MS    : integer := 1000;   -- (Not used as minimum decrement anymore, since we accumulate)
+    constant CD_INC_MS    : integer := 1000;   -- บวกให้ด่านละ 1 วินาที
+    signal   cd_time_val  : integer range 0 to 16383 := CD_START_MS;
+    
+    -- New flags
+    signal play_en        : STD_LOGIC := '0';
+    signal show_up        : STD_LOGIC := '0';
 
     -- Score
     signal score        : integer range 0 to 9999 := 0;
@@ -307,8 +313,10 @@ begin
             load_value_ms => cd_load_ms,
             max_time_ms   => cd_max_ms,
             display_en    => cd_display,
+            count_en      => play_en,
             x_val_in      => x_val,
             cond_ok_in    => cond_ok,
+            show_up_in    => show_up,
             seg           => cd_seg,
             an            => cd_an,
             led_r         => cd_led,
@@ -434,21 +442,11 @@ begin
                 end case;
 
             -- ------------------------------------------------------------------
-            -- WAIT VERTICAL (UP)
-            -- digits 3=U, 2=P
+            -- WAIT VERTICAL (UP text is now handled by countdown_7seg)
             -- ------------------------------------------------------------------
             when ST_WAIT_VERT =>
-                case digit_sel is
-                    when "011" =>           -- U
-                        txt_an  <= "11110111";
-                        txt_seg <= "11000001";
-                    when "010" =>           -- P
-                        txt_an  <= "11111011";
-                        txt_seg <= "10001100";
-                    when others =>
-                        txt_an  <= "11111111";
-                        txt_seg <= "11111111";
-                end case;
+                txt_an  <= "11111111";
+                txt_seg <= "11111111";
 
             -- ------------------------------------------------------------------
             -- FAIL  (4 chars: F-A-I-L on digits 3-0)
@@ -712,12 +710,14 @@ begin
                             delay_cnt <= 0;
                             -- เพิ่ม score
                             score <= score + 1;
-                            -- เพิ่มความยาก: ลด countdown
-                            if cd_time_val - CD_DEC_MS >= CD_MIN_MS then
-                                cd_time_val <= cd_time_val - CD_DEC_MS;
+                            
+                            -- สะสมเวลา: เอาเวลาที่เหลืออยู่ (แช่แข็งแล้ว) มาบวกเพิ่ม 1 วิ
+                            if to_integer(unsigned(cd_time_ms)) + CD_INC_MS > 9999 then
+                                cd_time_val <= 9999;
                             else
-                                cd_time_val <= CD_MIN_MS;
+                                cd_time_val <= to_integer(unsigned(cd_time_ms)) + CD_INC_MS;
                             end if;
+                            
                             game_state <= ST_WAIT_VERT;
                         else
                             delay_cnt <= delay_cnt + 1;
@@ -727,7 +727,16 @@ begin
                     -- ST_WAIT_VERT : บังคับตั้งบอร์ดแนวตั้งก่อนเริ่มด่านใหม่
                     -- ----------------------------------------------------------
                     when ST_WAIT_VERT =>
-                        seg_sel <= '1';   -- text (แสดง UP)
+                        seg_sel <= '0';   -- ให้ countdown_7seg เป็นคนคุมจอเพื่อโชว์ UP โควต้าควบกับเวลาที่เหลือ
+                        
+                        -- แต่เพื่อให้หน้าจอมีบวกเวลาไปล่วงหน้าแล้ว ต้องโหลดค่าเข้า timer ทันที (หรือให้เห็นว่าเวลาเพิ่มแล้ว)
+                        -- อ่อ ในตอนเริ่มเกมจะมีการโหลด แต่ตรงนี้โชว์เวลาเก่าไปก่อน (ซึ่งไม่ใช่นะ)
+                        -- งั้นใช้วิธี cd_start Pulse ที่นี่เพื่อให้เวลาเปลี่ยน?
+                        -- ถ้า Pulse เดี๋ยวจะเผลอนับต่อ? play_en = 0 อยู่ เลยไม่นับต่อ!
+                        if delay_cnt = 0 then
+                            cd_start <= '1';
+                            delay_cnt <= 1;
+                        end if;
 
                         -- แนวตั้ง (90 องศา): x_val ไปสุดปลายคลื่น (+1g, ~437) หรือ (-1g, ~75)
                         -- ให้ค่าต้องมากกว่า 420 หรือน้อยกว่า 90 เพื่อป้องกันการเหลื่อมกับ 45 องศา
