@@ -779,5 +779,10 @@ begin
             end if;
         end if;
     end process;
+    -- Enable time counting only during ST_COUNTDOWN
+    play_en <= '1' when game_state = ST_COUNTDOWN else '0';
+    
+    -- Overlay "UP" text when in ST_WAIT_VERT
+    show_up <= '1' when game_state = ST_WAIT_VERT else '0';
 
 end Behavioral;
