@@ -729,8 +729,9 @@ begin
                     when ST_WAIT_VERT =>
                         seg_sel <= '1';   -- text (แสดง UP)
 
-                        -- แนวตั้ง: x_val ปลายขึ้น (+1g, ~384) หรือปลายลง (-1g, ~128)
-                        if (x_val >= 350 and x_val <= 420) or (x_val >= 90 and x_val <= 160) then
+                        -- แนวตั้ง (90 องศา): x_val ไปสุดปลายคลื่น (+1g, ~437) หรือ (-1g, ~75)
+                        -- ให้ค่าต้องมากกว่า 420 หรือน้อยกว่า 90 เพื่อป้องกันการเหลื่อมกับ 45 องศา
+                        if (x_val >= 420 and x_val <= 500) or (x_val >= 10 and x_val <= 90) then
                             do_random  <= '1';
                             game_state <= ST_RANDOM;
                         end if;
