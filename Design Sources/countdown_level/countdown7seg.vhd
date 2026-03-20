@@ -8,8 +8,10 @@ entity countdown_7seg is
         reset         : in  STD_LOGIC;
         start         : in  STD_LOGIC;
         load_value_ms : in  STD_LOGIC_VECTOR(13 downto 0);
-        max_time_ms   : in  STD_LOGIC_VECTOR(13 downto 0);
+        max_time_ms   : in  STD_LOGIC_VECTOR(13 downto 14-1); -- Just keeping size 14
         display_en    : in  STD_LOGIC;
+        x_val_in      : in  integer range 0 to 511;
+        cond_ok_in    : in  STD_LOGIC;
 
         seg           : out STD_LOGIC_VECTOR(7 downto 0);
         an            : out STD_LOGIC_VECTOR(7 downto 0);
@@ -68,6 +70,9 @@ architecture Behavioral of countdown_7seg is
     signal ms_tens    : integer range 0 to 9 := 0;
     signal ms_ones    : integer range 0 to 9 := 0;
 
+    signal raw_seg    : STD_LOGIC_VECTOR(6 downto 0);
+    signal use_raw    : STD_LOGIC := '0';
+
 begin
 
     U_CLK_DIV : clock_divider
@@ -117,11 +122,7 @@ begin
 
     process(time_ms)
     begin
-        if time_ms = 0 then
-            seconds <= 0;
-        else
-            seconds <= (time_ms - 1) / 1000 + 1;
-        end if;
+        seconds <= time_ms / 1000;
     end process;
 
     tens_digit <= seconds / 10;
@@ -152,41 +153,67 @@ begin
         ms_ones <= ms_two mod 10;
     end process;
 
-    process(digit_idx, tens_bin, ones_bin, ms_tens, ms_ones, display_en)
-    variable an_vec : STD_LOGIC_VECTOR(7 downto 0);
-begin
-    bin <= (others => '0');
-    an_vec := (others => '1');
-    dp_bit <= '0';
+    process(digit_idx, tens_bin, ones_bin, ms_tens, ms_ones, display_en, x_val_in, cond_ok_in)
+        variable an_vec : STD_LOGIC_VECTOR(7 downto 0);
+    begin
+        bin <= (others => '0');
+        an_vec := (others => '1');
+        dp_bit <= '0';
+        use_raw <= '0';
+        raw_seg <= "1111111";
 
-    if display_en = '0' then
-        an <= (others => '1');
-    else
-        case digit_idx is
-            when 7 | 6 | 5 | 4 =>
-                bin <= (others => '1');
-                dp_bit <= '1';
-            when 3 =>
-                bin <= tens_bin;
-                dp_bit <= '1';
-            when 2 =>
-                bin <= ones_bin;
-                dp_bit <= '0';
-            when 1 =>
-                bin <= std_logic_vector(to_unsigned(ms_tens, 4));
-                dp_bit <= '1';
-            when 0 =>
-                bin <= std_logic_vector(to_unsigned(ms_ones, 4));
-                dp_bit <= '1';
-            when others =>
-                bin <= (others => '0');
-                dp_bit <= '1';
-        end case;
+        if display_en = '0' then
+            an <= (others => '1');
+        else
+            case digit_idx is
+                when 7 =>
+                    if cond_ok_in = '1' then
+                        raw_seg <= "1000000"; -- 'O'
+                        use_raw <= '1';
+                    else
+                        bin <= std_logic_vector(to_unsigned(x_val_in / 100, 4));
+                    end if;
+                    dp_bit <= '1';
+                when 6 =>
+                    if cond_ok_in = '1' then
+                        raw_seg <= "0001011"; -- 'K'
+                        use_raw <= '1';
+                    else
+                        bin <= std_logic_vector(to_unsigned((x_val_in / 10) mod 10, 4));
+                    end if;
+                    dp_bit <= '1';
+                when 5 =>
+                    if cond_ok_in = '1' then
+                        raw_seg <= "1111111"; -- blank
+                        use_raw <= '1';
+                    else
+                        bin <= std_logic_vector(to_unsigned(x_val_in mod 10, 4));
+                    end if;
+                    dp_bit <= '1';
+                when 4 =>
+                    bin <= (others => '1');
+                    dp_bit <= '1';
+                when 3 =>
+                    bin <= tens_bin;
+                    dp_bit <= '1';
+                when 2 =>
+                    bin <= ones_bin;
+                    dp_bit <= '0';
+                when 1 =>
+                    bin <= std_logic_vector(to_unsigned(ms_tens, 4));
+                    dp_bit <= '1';
+                when 0 =>
+                    bin <= std_logic_vector(to_unsigned(ms_ones, 4));
+                    dp_bit <= '1';
+                when others =>
+                    bin <= (others => '0');
+                    dp_bit <= '1';
+            end case;
 
-        an_vec(digit_idx) := '0';
-        an <= an_vec;
-    end if;
-end process;
+            an_vec(digit_idx) := '0';
+            an <= an_vec;
+        end if;
+    end process;
 
     Bin2Seven : bin_to_7seg
         port map (
@@ -194,7 +221,9 @@ end process;
             seg => seg7
         );
 
-    seg <= (others => '1') when display_en = '0' else (dp_bit & seg7);
+    seg <= (others => '1') when display_en = '0' else 
+           (dp_bit & raw_seg) when use_raw = '1' else 
+           (dp_bit & seg7);
 
     process(time_ms, max_time_i)
     begin

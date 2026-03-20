@@ -125,6 +125,7 @@ architecture Behavioral of top_game is
         ST_LOAD_CD,     -- โหลด countdown แล้วรอ time_up='0' ก่อนเริ่มนับ
         ST_COUNTDOWN,   -- นับถอยหลัง + ตรวจเงื่อนไข
         ST_PASS,        -- แสดง PASS (1 วินาที)
+        ST_WAIT_VERT,   -- รอตั้งบอร์ดแนวตั้งก่อนเริ่มด่านใหม่
         ST_FAIL,        -- แสดง FAIL (1 วินาที)
         ST_HIGHSCORE    -- แสดง High Score แล้วกลับ PRESS
     );
@@ -304,6 +305,8 @@ begin
             load_value_ms => cd_load_ms,
             max_time_ms   => cd_max_ms,
             display_en    => cd_display,
+            x_val_in      => x_val,
+            cond_ok_in    => cond_ok,
             seg           => cd_seg,
             an            => cd_an,
             led_r         => cd_led,
@@ -429,6 +432,23 @@ begin
                 end case;
 
             -- ------------------------------------------------------------------
+            -- WAIT VERTICAL (UP)
+            -- digits 3=U, 2=P
+            -- ------------------------------------------------------------------
+            when ST_WAIT_VERT =>
+                case digit_sel is
+                    when "011" =>           -- U
+                        txt_an  <= "11110111";
+                        txt_seg <= "11000001";
+                    when "010" =>           -- P
+                        txt_an  <= "11111011";
+                        txt_seg <= "10001100";
+                    when others =>
+                        txt_an  <= "11111111";
+                        txt_seg <= "11111111";
+                end case;
+
+            -- ------------------------------------------------------------------
             -- FAIL  (4 chars: F-A-I-L on digits 3-0)
             -- ------------------------------------------------------------------
             when ST_FAIL =>
@@ -541,7 +561,7 @@ begin
             hold_pass <= '0';
             if game_state = ST_COUNTDOWN then
                 if cond_ok = '1' then
-                    if hold_cnt >= ONE_SEC - 1 then
+                    if hold_cnt >= (ONE_SEC / 2) - 1 then
                         hold_cnt  <= 0;
                         hold_pass <= '1';
                     else
@@ -696,11 +716,21 @@ begin
                             else
                                 cd_time_val <= CD_MIN_MS;
                             end if;
-                            -- วนลูปกลับไปสุ่มสีใหม่
-                            do_random  <= '1';
-                            game_state <= ST_RANDOM;
+                            game_state <= ST_WAIT_VERT;
                         else
                             delay_cnt <= delay_cnt + 1;
+                        end if;
+
+                    -- ----------------------------------------------------------
+                    -- ST_WAIT_VERT : บังคับตั้งบอร์ดแนวตั้งก่อนเริ่มด่านใหม่
+                    -- ----------------------------------------------------------
+                    when ST_WAIT_VERT =>
+                        seg_sel <= '1';   -- text (แสดง UP)
+
+                        -- แนวตั้ง: x_val ปลายขึ้น (+1g, ~384) หรือปลายลง (-1g, ~128)
+                        if (x_val >= 350 and x_val <= 420) or (x_val >= 90 and x_val <= 160) then
+                            do_random  <= '1';
+                            game_state <= ST_RANDOM;
                         end if;
 
                     -- ----------------------------------------------------------
