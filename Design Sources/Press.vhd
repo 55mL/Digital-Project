@@ -4,10 +4,11 @@ use IEEE.NUMERIC_STD.ALL;
 
 entity Press is
     Port (
-        clk : in STD_LOGIC;
-        btn : in STD_LOGIC;      -- N17 button
-        an  : out STD_LOGIC_VECTOR(7 downto 0);
-        seg : out STD_LOGIC_VECTOR(6 downto 0)
+        clk  : in STD_LOGIC;
+        btn1 : in STD_LOGIC;  -- N17 (Player 1)
+        btn2 : in STD_LOGIC;  -- M17 (Player 2)
+        an   : out STD_LOGIC_VECTOR(7 downto 0);
+        seg  : out STD_LOGIC_VECTOR(6 downto 0)
     );
 end Press;
 
@@ -15,92 +16,83 @@ architecture Behavioral of Press is
 
 signal refresh_counter : unsigned(19 downto 0) := (others => '0');
 signal digit_select : unsigned(2 downto 0);
-signal show_start : STD_LOGIC := '0';
+
+-- 00 = PRESS, 01 = START P1, 10 = START P2
+signal state : STD_LOGIC_VECTOR(1 downto 0) := "00";
 
 begin
 
--- clock divider
+-- Clock divider + state control
 process(clk)
 begin
     if rising_edge(clk) then
         refresh_counter <= refresh_counter + 1;
 
-        -- once button pressed → permanently show START
-        if btn = '1' then
-            show_start <= '1';
+        if btn1 = '1' then
+            state <= "01"; -- Player 1
+        elsif btn2 = '1' then
+            state <= "10"; -- Player 2
         end if;
 
     end if;
 end process;
 
-digit_select <= refresh_counter(19 downto 17);
+digit_select <= refresh_counter(18 downto 16); -- faster refresh
 
-process(digit_select, show_start)
+-- Display logic
+process(digit_select, state)
 begin
 
-    if show_start = '1' then
+    case state is
 
-        -- START
+    -- =====================
+    -- PRESS
+    -- =====================
+    when "00" =>
         case digit_select is
-
-            when "000" =>
-                an <= "11101111";  -- S
-                seg <= "0010010";
-
-            when "001" =>
-                an <= "11110111";  -- T
-                seg <= "0000111";
-
-            when "010" =>
-                an <= "11111011";  -- A
-                seg <= "0001000";
-
-            when "011" =>
-                an  <= "11110111";
-                seg <= "0101111";
-
-            when "100" =>
-                an <= "11111110";  -- T
-                seg <= "0000111";
-
-            when others =>
-                an <= "11111111";
-                seg <= "1111111";
-
+            when "000" => an <= "01111111"; seg <= "0001100"; -- P
+            when "001" => an <= "10111111"; seg <= "0101111"; -- r
+            when "010" => an <= "11011111"; seg <= "0000110"; -- E
+            when "011" => an <= "11101111"; seg <= "0010010"; -- S
+            when "100" => an <= "11110111"; seg <= "0010010"; -- S
+            when others => an <= "11111111"; seg <= "1111111";
         end case;
 
-    else
-
-        -- PRESS
+    -- =====================
+    -- START P1
+    -- =====================
+    when "01" =>
         case digit_select is
-
-            when "000" =>
-                an <= "11101111";  -- P
-                seg <= "0001100";
-
-            when "001" =>
-                an  <= "11110111";
-                seg <= "0101111";
-
-            when "010" =>
-                an <= "11111011";  -- E
-                seg <= "0000110";
-
-            when "011" =>
-                an <= "11111101";  -- S
-                seg <= "0010010";
-
-            when "100" =>
-                an <= "11111110";  -- S
-                seg <= "0010010";
-
-            when others =>
-                an <= "11111111";
-                seg <= "1111111";
-
+            when "000" => an <= "01111111"; seg <= "0010010"; -- S
+            when "001" => an <= "10111111"; seg <= "0000111"; -- T
+            when "010" => an <= "11011111"; seg <= "0001000"; -- A
+            when "011" => an <= "11101111"; seg <= "0101111"; -- r
+            when "100" => an <= "11110111"; seg <= "0000111"; -- T
+            when "101" => an <= "11111011"; seg <= "0001100"; -- P
+            when "110" => an <= "11111101"; seg <= "1111001"; -- 1
+            when others => an <= "11111111"; seg <= "1111111";
         end case;
 
-    end if;
+    -- =====================
+    -- START P2
+    -- =====================
+    when "10" =>
+        case digit_select is
+            when "000" => an <= "01111111"; seg <= "0010010"; -- S
+            when "001" => an <= "10111111"; seg <= "0000111"; -- T
+            when "010" => an <= "11011111"; seg <= "0001000"; -- A
+            when "011" => an <= "11101111"; seg <= "0101111"; -- r
+            when "100" => an <= "11110111"; seg <= "0000111"; -- T
+            when "101" => an <= "11111011"; seg <= "0001100"; -- P
+            when "110" => an <= "11111101"; seg <= "0100100"; -- 2
+            when others => an <= "11111111"; seg <= "1111111";
+        end case;
+
+    when others =>
+        an <= "11111111";
+        seg <= "1111111";
+
+    end case;
 
 end process;
 
