@@ -18,14 +18,19 @@ architecture Behavioral of RandomColor is
     signal random_val   : integer range 0 to 255 := 0;
     signal btn_reg      : STD_LOGIC := '0';
 
-    signal target_r     : STD_LOGIC := '0';
-    signal target_g     : STD_LOGIC := '0';
-    signal target_b     : STD_LOGIC := '0';
+    signal duty_r : integer range 0 to 100 := 0;
+    signal duty_g : integer range 0 to 100 := 0;
+    signal duty_b : integer range 0 to 100 := 0;
 
     signal pwm_counter  : integer range 0 to 100 := 0;
-    constant BRIGHTNESS : integer := 5; 
+    
+   
+    constant B_STD   : integer := 10; 
+    constant B_YEL_R : integer := 15; 
+    constant B_YEL_G : integer := 6;  
 
 begin
+    
     process(clk)
     begin
         if rising_edge(clk) then
@@ -35,7 +40,6 @@ begin
                 fast_counter <= fast_counter + 1;
             end if;
 
-            
             if btn_random = '1' and btn_reg = '0' then
                 random_val <= fast_counter;
             end if;
@@ -46,9 +50,9 @@ begin
 
     process(random_val)
     begin
-        target_r <= '0';
-        target_g <= '0';
-        target_b <= '0';
+        duty_r <= 0;
+        duty_g <= 0;
+        duty_b <= 0;
         color_out <= "00"; 
 
         if ((random_val >= 0 and random_val <= 9) or       
@@ -60,8 +64,8 @@ begin
             (random_val >= 216 and random_val <= 225) or   
             (random_val >= 246 and random_val <= 251)) then 
             
-            target_g <= '1';   
-            color_out <= "01"; -- Green
+            duty_g <= B_STD;   
+            color_out <= "01"; 
             
         elsif ((random_val >= 10 and random_val <= 18) or     
                (random_val >= 41 and random_val <= 55) or     
@@ -72,14 +76,16 @@ begin
                (random_val >= 226 and random_val <= 235) or   
                (random_val = 252 or random_val = 253)) then   
                 
-            target_r <= '1';
-            target_g <= '1';
-            color_out <= "10";  -- Yellow
+            duty_r <= B_YEL_R; 
+            duty_g <= B_YEL_G; 
+            color_out <= "10";  
+         
         else
-            target_r <= '1';
-            color_out <= "11";  -- Red
+            duty_r <= B_STD;
+            color_out <= "11";  
         end if;
     end process;
+    
     process(clk)
     begin
         if rising_edge(clk) then
@@ -88,13 +94,22 @@ begin
             else
                 pwm_counter <= pwm_counter + 1;
             end if;
-            if pwm_counter < BRIGHTNESS then
-                led17_r <= target_r;
-                led17_g <= target_g;
-                led17_b <= target_b;
+
+            if pwm_counter < duty_r then
+                led17_r <= '1';
             else
                 led17_r <= '0';
+            end if;
+
+            if pwm_counter < duty_g then
+                led17_g <= '1';
+            else
                 led17_g <= '0';
+            end if;
+
+            if pwm_counter < duty_b then
+                led17_b <= '1';
+            else
                 led17_b <= '0';
             end if;
         end if;

@@ -1,7 +1,3 @@
-## ============================================================
-## Constraints for Nexys A7-100T
-## ============================================================
-
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
 set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
 
