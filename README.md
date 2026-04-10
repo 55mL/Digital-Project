@@ -16,9 +16,9 @@
 
 | อุปกรณ์ | รายละเอียด |
 |---|---|
-| บอร์ด FPGA | Digilent Nexys A7-100T |
+| บอร์ด FPGA | Digilent Nexys A7 |
 | EDA Tool | Xilinx Vivado |
-| ภาษา HDL | VHDL |
+| ภาษา | VHDL |
 
 ---
 
