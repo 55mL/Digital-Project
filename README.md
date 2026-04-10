@@ -1,4 +1,5 @@
 # Digital-Project
+
 # Traffic Light Brake Reaction Game Using Nexys A7 FPGA
 
 โปรเจควิชา Digital Design จำลองเกม เหยียบเบรคตามสัญญาณไฟจราจร บนบอร์ด Nexys A7-100T โดยผู้เล่นต้องตอบสนองต่อสีไฟจราจรที่สุ่มขึ้นมา ทั้งการเอียงบอร์ดและการกดสวิตช์ให้ถูกต้องภายในเวลาที่กำหนด
@@ -102,42 +103,6 @@ Digital-Project/
 | ไม่ผ่าน | `FAIL` |
 | จบเกม | `GAME OVER` |
 | สรุปคะแนน | `HI XXXX` |
-
----
-
-## รายละเอียด Component
-
-### `clock_divider.vhd`
-สร้าง pulse 1 clock จาก 100 MHz clock:
-- `tick_out_1hz` — pulse ทุก 1 วินาที (นับ 100,000,000 รอบ)
-- `tick_out_1khz` — pulse ทุก 1 ms (นับ 100,000 รอบ)
-
-### `bin_to_7seg.vhd`
-แปลงค่า binary 4 บิต (0–9) เป็น segment pattern 7 บิต (active low)
-
-### `countdown7seg.vhd`
-- รับค่า `load_value_ms` และนับถอยหลังทีละ 1 ms
-- แสดงผล SS.ss (วินาที + ทศนิยม 2 ตำแหน่ง) บน digit 3–0
-- ส่งออก `time_up = '1'` เมื่อเวลาถึง 0
-
-### `countdown_level.vhd`
-- จัดการ logic ระดับด่าน
-- รับสัญญาณ `judge_pass` / `judge_fail` จาก component ตัดสินผล
-- เพิ่ม / ลด `level_base_ms` ตามผล
-
-### `RandomColor.vhd`
-- ใช้ free-running counter 0–255 เป็น seed
-- กดปุ่ม `btnc_i` เพื่อ latch ค่า → เลือกสี (เขียว / เหลือง / แดง)
-- ส่งออก `color_out[1:0]` และ PWM สำหรับ RGB LED
-
-### `AccelerometerCtl.vhd` + `ADXL362Ctrl.vhd` + `AccelArithmetics.vhd`
-- อ่านค่า X, Y, Z จาก ADXL362 ผ่าน SPI ที่ความถี่ 100 kHz
-- เฉลี่ย 16 ครั้งต่อ sample
-- Scale ค่าให้อยู่ในช่วง 0–511 (แทน −1g ถึง +1g)
-
-### `sSegDemo.vhd` + `sSegDisplay.vhd`
-- แสดงค่า accelerometer X และสถานะเกม (`PASS` / `FAIL`) บน 7-seg
-- Multiplex 8 digit ที่ ~95 Hz
 
 ---
 
